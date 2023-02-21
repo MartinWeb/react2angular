@@ -5,12 +5,12 @@ import {
   ICompileService,
   IComponentOptions, IController,
   IHttpService,
-  IQService, IScope,
+  IScope,
   module
 } from 'angular'
 import * as angular from 'angular'
 import 'angular-mocks'
-import { $http, $q, $rootScope } from 'ngimport'
+import { $http, $rootScope } from 'ngimport'
 import * as PropTypes from 'prop-types'
 import * as React from 'react'
 import { Simulate } from 'react-dom/test-utils'
@@ -28,7 +28,7 @@ class TestOne extends React.Component<Props> {
   componentWillUnmount() { }
 }
 
-const TestTwo: React.StatelessComponent<Props> = props =>
+const TestTwo: React.FunctionComponent<Props> = props =>
   <div>
     <p>Foo: {props.foo}</p>
     <p>Bar: {props.bar.join(',')}</p>
@@ -36,7 +36,7 @@ const TestTwo: React.StatelessComponent<Props> = props =>
     {props.children}
   </div>
 
-const TestThree: React.StatelessComponent = () =>
+const TestThree: React.FunctionComponent = () =>
   <div>Foo</div>
 
 class TestFour extends React.Component<Props> {
@@ -64,10 +64,10 @@ class TestFive extends React.Component<Props> {
 }
 
 class TestSixService {
-  constructor(private $q: IQService) { }
+  constructor() { }
 
   foo() {
-    return this.$q.resolve('testSixService result')
+    return new Promise((resolve) => resolve('testSixService result'))
   }
 }
 
@@ -166,6 +166,9 @@ const TestAngularSix = react2angular(TestSix, ['foo'], ['$http', '$element', 'te
 const TestAngularSeven = react2angular(TestSeven, null, ['foo'])
 const TestAngularEight = react2angular(TestEight, ['values', 'onComponentWillUnmount', 'onRender', 'onChange'])
 
+// render + mount isn't sync, this is an alternative to act()
+const delay = () => new Promise(resolve => setTimeout(resolve, 10))
+
 module('test', ['bcherny/ngimport'])
   .component('testAngularOne', TestAngularOne)
   .component('testAngularTwo', TestAngularTwo)
@@ -184,6 +187,7 @@ interface Props {
   bar: boolean[]
   baz(value: number): any
   foo: number
+  children: React.ReactNode
 }
 
 describe('react2angular', () => {
@@ -245,7 +249,7 @@ describe('react2angular', () => {
 
   describe('react classes', () => {
 
-    it('should render', () => {
+    it('should render', async () => {
       const scope = Object.assign($rootScope.$new(true), {
         bar: [true, false],
         baz: (value: number) => value + 1,
@@ -254,18 +258,22 @@ describe('react2angular', () => {
       const element = $(`<test-angular-one foo="foo" bar="bar" baz="baz"></test-angular-one>`)
       $compile(element)(scope)
       $rootScope.$apply()
+
+      await delay()
       expect(element.find('p').length).toBe(3)
     })
 
-    it('should render (even if the component takes no props)', () => {
+    it('should render (even if the component takes no props)', async () => {
       const scope = $rootScope.$new(true)
       const element = $(`<test-angular-four></test-angular-four>`)
       $compile(element)(scope)
       $rootScope.$apply()
+
+      await delay()
       expect(element.text()).toBe('Foo')
     })
 
-    it('should update', () => {
+    it('should update', async () => {
       const scope = Object.assign($rootScope.$new(true), {
         bar: [true, false],
         baz: (value: number) => value + 1,
@@ -274,14 +282,18 @@ describe('react2angular', () => {
       const element = $(`<test-angular-one foo="foo" bar="bar" baz="baz"></test-angular-one>`)
       $compile(element)(scope)
       $rootScope.$apply()
+
+      await delay()
       expect(element.find('p').eq(1).text()).toBe('Bar: true,false')
       scope.$apply(() =>
         scope.bar = [false, true, true]
       )
+
+      await delay()
       expect(element.find('p').eq(1).text()).toBe('Bar: false,true,true')
     })
 
-    it('should destroy', () => {
+    it('should destroy', async () => {
       const scope = Object.assign($rootScope.$new(true), {
         bar: [true, false],
         baz: (value: number) => value + 1,
@@ -290,12 +302,14 @@ describe('react2angular', () => {
       const element = $(`<test-angular-one foo="foo" bar="bar" baz="baz"></test-angular-one>`)
       $compile(element)(scope)
       $rootScope.$apply()
+
+      await delay()
       spyOn(TestOne.prototype, 'componentWillUnmount')
       scope.$destroy()
       expect(TestOne.prototype.componentWillUnmount).toHaveBeenCalled()
     })
 
-    it('should take callbacks', () => {
+    it('should take callbacks', async () => {
       const baz = jasmine.createSpy('baz')
       const scope = Object.assign($rootScope.$new(true), {
         bar: [true, false],
@@ -305,12 +319,14 @@ describe('react2angular', () => {
       const element = $(`<test-angular-one foo="foo" bar="bar" baz="baz"></test-angular-one>`)
       $compile(element)(scope)
       $rootScope.$apply()
+
+      await delay()
       Simulate.click(element.find('p').eq(2)[0])
       expect(baz).toHaveBeenCalledWith(42)
     })
 
     // TODO: support children
-    it('should not support children', () => {
+    it('should not support children', async () => {
       const scope = Object.assign($rootScope.$new(true), {
         bar: [true, false],
         baz: (value: number) => value + 1,
@@ -319,11 +335,13 @@ describe('react2angular', () => {
       const element = $(`<test-angular-one foo="foo" bar="bar" baz="baz"><span>Transcluded</span></test-angular-one>`)
       $compile(element)(scope)
       $rootScope.$apply()
+
+      await delay()
       expect(element.find('span').length).toBe(0)
     })
 
-    it('should take injections, which override props', () => {
-      spyOn($http, 'get').and.returnValue($q.resolve({ data: '$http response' }))
+    it('should take injections, which override props', async () => {
+      spyOn($http, 'get').and.returnValue(new Promise((resolve) => resolve({ data: '$http response' })))
       const scope = Object.assign($rootScope.$new(true), {
         foo: 'FOO'
       })
@@ -335,6 +353,8 @@ describe('react2angular', () => {
       $compile(element2)(scope)
 
       $rootScope.$apply()
+
+      await delay()
 
       expect($http.get).toHaveBeenCalledWith('https://example.com/')
       expect(element1.find('p').eq(0).text()).toBe('$http response', '$http is injected')
@@ -348,7 +368,7 @@ describe('react2angular', () => {
 
   describe('react stateless components', () => {
 
-    it('should render', () => {
+    it('should render', async () => {
       const scope = Object.assign($rootScope.$new(true), {
         bar: [true, false],
         baz: (value: number) => value + 1,
@@ -357,18 +377,22 @@ describe('react2angular', () => {
       const element = $(`<test-angular-two foo="foo" bar="bar" baz="baz"></test-angular-two>`)
       $compile(element)(scope)
       $rootScope.$apply()
+
+      await delay()
       expect(element.find('p').length).toBe(3)
     })
 
-    it('should render (even if the component takes no props)', () => {
+    it('should render (even if the component takes no props)', async () => {
       const scope = $rootScope.$new(true)
       const element = $(`<test-angular-three></test-angular-three>`)
       $compile(element)(scope)
       $rootScope.$apply()
+
+      await delay()
       expect(element.text()).toBe('Foo')
     })
 
-    it('should update', () => {
+    it('should update', async () => {
       const scope = Object.assign($rootScope.$new(true), {
         bar: [true, false],
         baz: (value: number) => value + 1,
@@ -377,17 +401,21 @@ describe('react2angular', () => {
       const element = $(`<test-angular-two foo="foo" bar="bar" baz="baz"></test-angular-two>`)
       $compile(element)(scope)
       $rootScope.$apply()
+
+      await delay()
       expect(element.find('p').eq(1).text()).toBe('Bar: true,false')
       scope.$apply(() =>
         scope.bar = [false, true, true]
       )
+
+      await delay()
       expect(element.find('p').eq(1).text()).toBe('Bar: false,true,true')
     })
 
     // TODO: figure out how to test this
     xit('should destroy', () => { })
 
-    it('should take callbacks', () => {
+    it('should take callbacks', async () => {
       const baz = jasmine.createSpy('baz')
       const scope = Object.assign($rootScope.$new(true), {
         bar: [true, false],
@@ -397,12 +425,14 @@ describe('react2angular', () => {
       const element = $(`<test-angular-two foo="foo" bar="bar" baz="baz"></test-angular-two>`)
       $compile(element)(scope)
       $rootScope.$apply()
+
+      await delay()
       Simulate.click(element.find('p').eq(2)[0])
       expect(baz).toHaveBeenCalledWith(42)
     })
 
     // TODO: support children
-    it('should not support children', () => {
+    it('should not support children', async () => {
       const scope = Object.assign($rootScope.$new(true), {
         bar: [true, false],
         baz: (value: number) => value + 1,
@@ -411,10 +441,12 @@ describe('react2angular', () => {
       const element = $(`<test-angular-two foo="foo" bar="bar" baz="baz"><span>Transcluded</span></test-angular-two>`)
       $compile(element)(scope)
       $rootScope.$apply()
+
+      await delay()
       expect(element.find('span').length).toBe(0)
     })
 
-    it('should not call render after component unmount', () => {
+    it('should not call render after component unmount', async () => {
       const componentWillUnmountSpy = jasmine.createSpy('componentWillUnmount')
       const renderSpy = jasmine.createSpy('render')
 
@@ -437,6 +469,8 @@ describe('react2angular', () => {
           .element(element.find('test-angular-eight'))
           .scope()
       $rootScope.$apply()
+
+      await delay()
 
       // Erase first render caused on apply
       renderSpy.calls.reset()
