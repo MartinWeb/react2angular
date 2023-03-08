@@ -29,9 +29,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org/'
       - run: npm ci
       - run: |
-          echo '//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}' > .npmrc
-          echo 'registry=https://registry.npmjs.org/' > .npmrc
-          echo 'always-auth=true' > .npmrc
+          echo -e '//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}\nregistry=https://registry.npmjs.org/\nalways-auth=true' > .npmrc
           cat .npmrc
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
