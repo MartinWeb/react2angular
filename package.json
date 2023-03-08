@@ -17,7 +17,8 @@
     "watch:test": "karma start"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.com/"
   },
   "repository": {
     "type": "git",
