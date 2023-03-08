@@ -26,13 +26,15 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: 16
-          registry-url: https://registry.npmjs.org/
+          registry-url: 'https://registry.npmjs.org/'
       - run: npm ci
       - run: |
           echo '//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}' > .npmrc
+          echo 'registry=https://registry.npmjs.org/' > .npmrc
+          echo 'always-auth=true' > .npmrc
           cat .npmrc
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - run: npm publish --access public --registry https://registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}
+      - run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
